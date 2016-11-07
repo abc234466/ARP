@@ -7,4 +7,3 @@ arp: $(OBJS)
 
 clean:
 	-rm arp
-	-rm $/*.o	

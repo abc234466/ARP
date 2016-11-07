@@ -31,4 +31,7 @@ char* get_target_hardware_addr(struct ether_arp *packet, char *info);
 char* get_inf_mac(char* info, char *device);
 char* get_inf_ip(char* info, char *device);
 int getInterfaceByName(int fd,char *name);
+void Print_Format();
+
+
 #endif
