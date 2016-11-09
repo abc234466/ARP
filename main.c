@@ -33,9 +33,9 @@ void reply_packet(struct ether_addr *mac, struct ether_arp *pa, struct arp_packe
  * If you don't know your device name, you can use "ifconfig" command on Linux.
  * You have to use "enp2s0f5" when you ready to upload your homework.
  */
-//#define DEVICE_NAME "enp2s0f5"
+#define DEVICE_NAME "enp2s0f5"
 
-#define DEVICE_NAME "ens33"
+//#define DEVICE_NAME "ens33"
 
 /*
  * You have to open two socket to handle this program.
