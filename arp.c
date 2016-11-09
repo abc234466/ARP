@@ -3,7 +3,7 @@
 #include <netinet/in.h> //warning: implicit declaration of function ‘htons’
 #include <netinet/if_ether.h>
 #include <net/ethernet.h>
-#include <linux/if.h>
+#include <linux/if.h> //ifreq
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +42,7 @@ void set_sender_hardware_addr(struct ether_arp *packet, char *address)
 }
 void set_sender_protocol_addr(struct ether_arp *packet, char *address)
 {
-	memcpy(packet->arp_spa, address, 4);
+	memcpy(packet->arp_spa, address, IP_ALEN);
 }
 void set_target_hardware_addr(struct ether_arp *packet, char *address)
 {
@@ -50,7 +50,7 @@ void set_target_hardware_addr(struct ether_arp *packet, char *address)
 }
 void set_target_protocol_addr(struct ether_arp *packet, char *address)
 {
-	memcpy(packet->arp_tpa, address, 4);
+	memcpy(packet->arp_tpa, address, IP_ALEN);
 }
 
 char* get_target_protocol_addr(struct ether_arp *packet, char *info)

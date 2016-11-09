@@ -1,7 +1,10 @@
 #ifndef __ARP_UTIL_H__
 #define __ARP_UTIL_H__
 
-#include <netinet/if_ether.h>
+#define IP_ALEN 4
+
+// ETH_ALEN
+#include <netinet/if_ether.h> 
 
 struct arp_packet
 {

