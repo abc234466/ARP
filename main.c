@@ -167,7 +167,7 @@ void arp_query(char *argv[])
 		perror("ARP query socket error");
 	}
 	
-	//encapsulte IP address  into packet
+	//encapsulte IP address  into packet format
 	inet_pton(AF_INET, argv[2], &target_address);
 	
 	memcpy(&query.eth_hdr.ether_dhost,"\xff\xff\xff\xff\xff\xff",ETH_ALEN); // query <- Destination MAC address
